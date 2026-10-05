@@ -1,4 +1,4 @@
- 
+// 进程内状态和固定容量缓冲。保持声明顺序及 ABI，不在此分配运行期扫描任务。
 dstorage_guard::LooseTextureCleanup g_loose_cleanup;
 std::atomic<void *> g_loose_cleanup_host{};
 

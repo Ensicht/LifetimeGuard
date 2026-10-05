@@ -1,4 +1,4 @@
- 
+// 工厂接入、插件固定与双语面板。初始化完成后不重复扫描进程或安装 Hook。
 bool install_iat_hook() {
     auto *image = reinterpret_cast<std::uint8_t *>(GetModuleHandleW(nullptr));
     if (image == nullptr) {
@@ -47,7 +47,7 @@ bool install_iat_hook() {
                 continue;
             }
             auto *address = &addresses[index];
-            extern  
+            extern // 复用原工厂返回结果；安装状态负责去重，常规工厂调用不反复写报告。
                 HRESULT WINAPI hook_dstorage_get_factory(REFIID, void **);
             const auto original = reinterpret_cast<DStorageGetFactoryFn>(address->u1.Function);
             DWORD old_protection{};
@@ -85,14 +85,14 @@ HRESULT WINAPI hook_dstorage_get_factory(REFIID riid, void **output) {
     return result;
 }
 
- 
+// 已安装回调可能仍在其他线程执行，因此固定 DLL 生命周期，禁止运行中卸载。
 void pin_module() {
     HMODULE ignored{};
     GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                        reinterpret_cast<LPCWSTR>(&pin_module), &ignored);
 }
 
- 
+// 界面只读统计并保存语言设置，不扫描角色、不触发保护安装或重试。
 void draw_status_ui(REFImGuiFrameCbData *data) {
     if (data == nullptr) {
         return;

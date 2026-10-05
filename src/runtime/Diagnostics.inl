@@ -1,4 +1,4 @@
- 
+// 日志格式、限额与历史轮换。此处只由既有报告路径调用，不增加热路径写盘。
 void ensure_report_directory() {
     CreateDirectoryW(L"reframework", nullptr);
     CreateDirectoryW(L"reframework\\data", nullptr);
@@ -67,7 +67,7 @@ void rotate_report_file(const wchar_t *source, const wchar_t *destination) {
     note_report_rotation_failure(copy_error != ERROR_SUCCESS ? copy_error : move_error);
 }
 
- 
+// 事件和故障日志按同一会话轮换；无故障留下空位，不能把不同启动对齐。
 void rotate_report_history() {
     ensure_report_directory();
     wchar_t source[MAX_PATH]{};

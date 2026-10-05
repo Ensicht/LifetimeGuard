@@ -1,4 +1,4 @@
- 
+// 双语状态面板：复用宿主 C 接口，避免引入不同版本的 ImGui ABI。
 #pragma once
 
 #include <windows.h>
@@ -99,8 +99,8 @@ inline const char *guard_layer_state(std::uint32_t state,
     }
 }
 
- 
- 
+// Use the host's exported C interface, never a separately compiled ImGui ABI.
+// All pointers are resolved once; draw() is called only by on_imgui_draw_ui.
 class GuardStatusUi {
   public:
     bool load(HMODULE host) noexcept {
@@ -275,4 +275,4 @@ class GuardStatusUi {
     bool ready_{};
 };
 
-}  
+} // namespace dstorage_guard

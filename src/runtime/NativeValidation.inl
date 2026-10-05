@@ -1,4 +1,4 @@
- 
+// 原生模块、代码和安装事件验证。签名不符时拒绝安装，不猜测偏移。
 bool pe_matches(HMODULE module) {
     if (module == nullptr) {
         return false;

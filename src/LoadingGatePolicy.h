@@ -1,4 +1,4 @@
- 
+// 加载门状态机：保留普通加载、快速旅行、嵌套起点和代次隔离的稳定版规则。
 #pragma once
 
 #include <atomic>
@@ -18,9 +18,9 @@ struct LoadingGateSnapshot {
 
 class LoadingGate {
   public:
-     
-     
-     
+    // The DLL can be exercised by the standalone DirectStorage harness before
+    // a REFramework API exists. Real plugin initialization reconfigures this
+    // state after installing the managed lifecycle hooks.
     LoadingGate() noexcept : state_(k_generation_step | k_available | k_active | k_bootstrap) {}
 
     void configure(bool lifecycle_available, bool active) noexcept {
@@ -46,8 +46,8 @@ class LoadingGate {
                 next |= k_active;
                 next &= ~(k_bootstrap | k_end_seen | k_saw_loading);
             } else if ((state & k_bootstrap) != 0) {
-                 
-                 
+                // Adopt the first real lifecycle signal without leaving an
+                // unprotected gap during the game's initial boot loading.
                 next &= ~(k_bootstrap | k_end_seen | k_saw_loading);
             }
             if (requires_fade_in) {
@@ -69,8 +69,8 @@ class LoadingGate {
         }
     }
 
-     
-     
+    // Player/Environment load-end is lifecycle evidence, not a stable release
+    // boundary. Same-Scene black-screen routes deliberately ignore it.
     bool mark_end_signal(bool is_fade_in, std::uint64_t *generation = nullptr) noexcept {
         auto state = state_.load(std::memory_order_acquire);
         for (;;) {
@@ -115,9 +115,9 @@ class LoadingGate {
         }
     }
 
-     
-     
-     
+    // Mirrors the stable ordinary-load BSFN/AVM release semantics. The caller
+    // supplies the game-owned observations so this policy remains testable and
+    // contains no managed-object access itself.
     bool try_end_stable_scene(bool loading, bool scene_valid,
                               std::uint64_t *generation = nullptr) noexcept {
         if (loading || !scene_valid) {
@@ -194,4 +194,4 @@ class LoadingGate {
     std::atomic<std::uint64_t> state_{};
 };
 
-}  
+} // namespace dstorage_guard

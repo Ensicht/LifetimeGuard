@@ -1,4 +1,4 @@
- 
+// LifetimeGuard: stable implementation assembled as one translation unit.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -35,6 +35,6 @@ namespace {
 #include "runtime/Diagnostics.inl"
 #include "runtime/ReportWorker.inl"
 #include "runtime/Startup.inl"
-}  
+} // namespace
 
 #include "Exports.inl"

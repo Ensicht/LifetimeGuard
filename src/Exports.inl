@@ -1,4 +1,4 @@
- 
+// 稳定版导出 ABI，包括离线测试入口。仅被显式调用时执行，不注册额外运行任务。
 
 extern "C" __declspec(dllexport) bool
 dstorage_file_lifetime_guard_get_texture_retry_stats(dstorage_guard::TextureRetryStats *output,
@@ -13,8 +13,8 @@ dstorage_file_lifetime_guard_get_texture_retry_stats(dstorage_guard::TextureRetr
     return true;
 }
 
- 
- 
+// Standalone-host ABI. Game initialization with a real REFramework parameter
+// never enables these entry points. They cannot rebind an installed adapter.
 extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_retry_profile(void *image) {
     return g_offline_test_mode.load() && image != nullptr &&
            validate_retry_profile(static_cast<HMODULE>(image));
@@ -264,7 +264,7 @@ reframework_plugin_initialize(const REFrameworkPluginInitializeParam *param) {
     if (g_report_thread == nullptr) {
         write_protection_report();
     }
-     
+    // Keep the read-only status panel available even if protection failed.
     return success || g_status_ui_state.load(std::memory_order_acquire) == 1;
 }
 

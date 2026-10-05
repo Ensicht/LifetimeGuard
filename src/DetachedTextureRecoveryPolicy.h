@@ -1,4 +1,4 @@
- 
+// 失败纹理重读资格与令牌状态：地址相同不代表同一份资源。
 #pragma once
 
 #include <cstdint>
@@ -31,9 +31,9 @@ struct DetachedTextureSnapshot {
     bool attempted{};
 };
 
- 
- 
- 
+// An empty task pointer, a readable allocation, or elapsed time alone is NOT
+// terminal evidence. The native adapter must prove that parsing/IO has ended
+// and serialize ownership against native parsing, finalization and unload.
 constexpr DetachedTextureDecision decide_detached_texture(const DetachedTextureSnapshot &observed,
                                                           const DetachedTextureSnapshot &current) {
     if (!observed.loading_active || !current.loading_active) {
@@ -75,11 +75,11 @@ enum class DetachedQueueResult : std::uint32_t {
     queued,
 };
 
- 
- 
- 
- 
- 
+// try_acquire is nonblocking and owns one native reference plus task binding.
+// It consumes the attempt for this identity/generation even if enqueue fails,
+// so a failing allocation/queue cannot cause a retry storm on readiness queries.
+// enqueue transfers them to the native worker only on success. No finalizer
+// or ready-bit write is allowed on this caller/consumer thread.
 template <class Operations>
 DetachedQueueResult queue_detached_texture(const DetachedTextureSnapshot &observed,
                                            Operations &operations) {
@@ -90,7 +90,7 @@ DetachedQueueResult queue_detached_texture(const DetachedTextureSnapshot &observ
     if (!operations.try_acquire(observed)) {
         return DetachedQueueResult::ownership_unavailable;
     }
-     
+    // The adapter omits its own reserved task and consumed attempt here.
     if (decide_detached_texture(observed, operations.owned_snapshot()) !=
         DetachedTextureDecision::eligible) {
         operations.rollback();
@@ -103,4 +103,4 @@ DetachedQueueResult queue_detached_texture(const DetachedTextureSnapshot &observ
     return DetachedQueueResult::queued;
 }
 
-}  
+} // namespace dstorage_guard

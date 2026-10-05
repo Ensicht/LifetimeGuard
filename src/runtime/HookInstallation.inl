@@ -1,4 +1,4 @@
- 
+// 安装与失败回滚。保留主入口和备用虚表入口的原验证条件。
 template <std::size_t N>
 void *find_exact_code(HMODULE module, const std::uint8_t (&pattern)[N], std::uintptr_t rva) {
     char mask[N + 1]{};
@@ -18,8 +18,8 @@ void *find_task_submit_anchor(HMODULE module) {
         if (std::memcmp(submit, dstorage_guard::task_submit_signature, size) == 0) {
             status = 0;
         } else if (submit[0] == 0xE9) {
-             
-             
+            // LooseTextureLoader changes only this rel32 entry. Do not follow,
+            // execute, or rewrite its hook; the remaining body identifies it.
             std::int32_t relative{};
             std::memcpy(&relative, submit + 1, sizeof(relative));
             const auto origin = reinterpret_cast<std::uintptr_t>(submit);
@@ -85,7 +85,7 @@ void **find_task_ready_slot(HMODULE module, void *submit) {
                     for (unsigned entry = 0; entry < 13 && valid; ++entry) {
                         if (entry == 7) {
                             continue;
-                        }  
+                        } // Compare/exchange rejects a foreign replacement.
                         const auto address = reinterpret_cast<std::uintptr_t>(methods[entry]);
                         valid = address >= image_begin && address < image_end &&
                                 is_readable_range(methods[entry], 1) &&
@@ -125,7 +125,7 @@ struct NativePointerHookOperations {
     }
 };
 
- 
+// 主 Hook 无近地址空间时使用已核对的单一虚表槽，冲突时只回滚自己的写入。
 bool install_resource_vtable_fallback(HMODULE module, void *ready, void *texture_vtable,
                                       const std::uint8_t *ready_signature, std::size_t ready_size) {
     auto *worker = find_exact_code(module, dstorage_guard::resource_worker_signature,
@@ -153,8 +153,8 @@ bool install_resource_vtable_fallback(HMODULE module, void *ready, void *texture
         return false;
     }
 
-     
-     
+    // Publish a valid original before publishing the detour. A captured detour
+    // remains safe even if page-protection restoration requires rollback.
     g_original_resource_task_ready.store(reinterpret_cast<ResourceTaskReadyFn>(ready),
                                          std::memory_order_release);
     g_texture_vtable = texture_vtable;
@@ -184,7 +184,7 @@ bool install_resource_vtable_fallback(HMODULE module, void *ready, void *texture
     return true;
 }
 
- 
+// 先验证任务、虚表和调用链，再选择可用安装路径，未知宿主直接拒绝。
 bool install_resource_recovery_hook() {
     if (g_resource_install_state.load(std::memory_order_acquire) == 1) {
         return true;
@@ -295,7 +295,7 @@ bool install_resource_recovery_hook() {
     return true;
 }
 
- 
+// 校验受支持的 DirectStorage 指纹及入口后一次性安装；失败不弱化校验。
 bool install_internal_hooks() {
     if (g_install_state.load(std::memory_order_acquire) == 1) {
         return true;

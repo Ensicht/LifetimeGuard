@@ -1,4 +1,4 @@
- 
+// 纹理收尾纯策略：只做条件判定，不扫描对象，也不执行文件读取。
 #pragma once
 
 #include <cstdint>
@@ -128,4 +128,4 @@ constexpr const char *recovery_decision_name(ResourceRecoveryDecision decision) 
     return "unknown";
 }
 
-}  
+} // namespace dstorage_guard

@@ -1,5 +1,5 @@
- 
- 
+// 既有报告线程及启动摘要。不增加计时器，不在后台重新解引用游戏资源。
+// 消费固定容量事件快照；资源异常只传标量，不从报告线程访问原生对象。
 DWORD WINAPI report_thread_proc(void *) {
     SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
     for (;;) {

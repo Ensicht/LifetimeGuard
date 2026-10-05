@@ -1,4 +1,4 @@
- 
+// 松散纹理清理引用配对：仅在已验证的 Close 调用点配临时引用，不缓存纹理对象。
 #pragma once
 #include <windows.h>
 #include <atomic>
@@ -7,7 +7,7 @@
 
 namespace dstorage_guard {
 
- 
+// This is one verified game's ownership path, not a global COM refcount fix.
 struct CleanupBlock {
     std::uintptr_t rva;
     const char *hex;
@@ -60,7 +60,7 @@ inline bool cleanup_read(const void *p, void *out, std::size_t size) {
     return p && ReadProcessMemory(GetCurrentProcess(), p, out, size, &read) && read == size;
 }
 
- 
+// Zero is accepted. Other results name the first rejected startup check.
 inline std::uint32_t validate_cleanup_image(const void *image) {
     IMAGE_DOS_HEADER dos{};
     IMAGE_NT_HEADERS64 nt{};
@@ -128,7 +128,7 @@ inline bool is_loose_texture_path(const wchar_t *path, std::size_t length) noexc
     if (!path || length < 6 || length > 32767) {
         return false;
     }
-     
+    // Check the final file extension only, never a directory containing '.tex.'.
     auto end = length;
     while (end && path[end - 1] >= L'0' && path[end - 1] <= L'9') {
         --end;
@@ -155,14 +155,14 @@ class LooseTextureCleanup {
         }
     }
 
-     
+    // 仅匹配原生清理调用点和纹理路径时配一次临时引用，由后续原生 Release 消耗。
     bool pair(void *wrapper, std::uintptr_t caller) noexcept {
         const auto expected = caller_.load(std::memory_order_acquire);
         if (!expected || caller != expected || !wrapper) {
             return false;
         }
-         
-         
+        // The supported DirectStorage 1.2.3 wrapper is live at Close entry.
+        // Its immutable std::wstring belongs to the internal file, not to a scene object.
         const auto *file = *reinterpret_cast<const std::uint8_t *const *>(
             static_cast<const std::uint8_t *>(wrapper) + 0x20);
         if (!file) {
@@ -180,8 +180,8 @@ class LooseTextureCleanup {
         }
         using Ref = ULONG (*)(void *);
         const auto table = *reinterpret_cast<void ***>(wrapper);
-         
-         
+        // The next native Release consumes this temporary reference. The map
+        // eraser then consumes its own reference. Do not release it here again.
         reinterpret_cast<Ref>(table[1])(wrapper);
         paired_.fetch_add(1, std::memory_order_relaxed);
         return true;
@@ -202,4 +202,4 @@ class LooseTextureCleanup {
     std::atomic<std::uint32_t> failure_{1};
     std::atomic<std::uint64_t> paired_{};
 };
-}  
+} // namespace dstorage_guard

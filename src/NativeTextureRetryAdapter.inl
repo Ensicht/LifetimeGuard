@@ -1,5 +1,5 @@
- 
- 
+// 原生纹理重读适配：验证精确指令和回调所有权，不把恢复任务永久挂起。
+// Included inside the plugin's private namespace, after native hook helpers.
 using NativeResourceReleaseFn = void (*)(void *, void *);
 using NativeResourceReadQueueFn = void (*)(void *, void *);
 using NativeTextureDeleteFn = void *(*)(void *, std::uint32_t);
@@ -11,7 +11,7 @@ std::atomic<NativeTextureReadyFn> g_retry_original_ready{};
 std::atomic<bool> g_retry_armed{};
 std::atomic<std::uint32_t> g_retry_install_state{};
 std::atomic<int> g_retry_create_status{k_mh_status_not_attempted};
-std::atomic<unsigned> g_retry_hook_mode{};  
+std::atomic<unsigned> g_retry_hook_mode{}; // 1: near trampoline, 2: verified fixed16 fallback.
 std::atomic<int> g_retry_enable_status{k_mh_status_not_attempted};
 std::uintptr_t g_retry_terminal_callers[4]{};
 void *g_retry_texture_vtable{};
@@ -21,7 +21,7 @@ std::atomic<bool> g_retry_gameplay_enabled{true};
 std::atomic<bool> g_retry_test_clock{};
 std::atomic<std::uint64_t> g_retry_test_ms{};
 
- 
+// 加载期与游玩期分别放行；启动未取得有效代次时，不提前处理未初始化资源。
 dstorage_guard::TextureRetryGate retry_gate() {
     const auto gate = g_loading_gate.snapshot();
     const bool gameplay = !gate.active && g_retry_gameplay_enabled.load(std::memory_order_relaxed);
@@ -44,8 +44,8 @@ template <class T> T retry_read(void *object, std::size_t offset) {
 
 dstorage_guard::TextureRetryResource retry_snapshot(void *resource) {
     dstorage_guard::TextureRetryResource result{};
-     
-     
+    // Resource Release/ready callers already own a reference. A receipt is
+    // never used as authority to dereference an arbitrary cached address.
     if (resource == nullptr || retry_read<void *>(resource, 0) != g_retry_texture_vtable) {
         return result;
     }
@@ -77,13 +77,13 @@ void retry_release(void *manager, void *resource) {
 
 bool retry_enqueue(void *manager, void *resource) {
     g_retry_read_queue(manager, resource);
-     
-     
+    // This native function has no recoverable allocation-failure return.
+    // It owns EAC/list bookkeeping; never invent success by setting ready.
     return true;
 }
 
 bool retry_wake(void *manager) {
-     
+    // Same queue notification as native ResourceManager.create_resource.
     auto *pending = reinterpret_cast<volatile LONG *>(static_cast<std::uint8_t *>(manager) + 0x5E8);
     if (InterlockedCompareExchange(pending, 1, 0) != 0) {
         return true;
@@ -111,7 +111,7 @@ bool retry_terminal_caller(std::uintptr_t caller) {
            caller == g_retry_terminal_callers[2] || caller == g_retry_terminal_callers[3];
 }
 
- 
+// 仅四个已验证的终态调用点允许转移引用；其余 Release 原样转发。
 void hook_retry_resource_release(void *manager, void *resource) {
     const auto caller = reinterpret_cast<std::uintptr_t>(__builtin_return_address(0));
     if (g_retry_armed.load(std::memory_order_acquire) && retry_terminal_caller(caller) &&
@@ -121,17 +121,17 @@ void hook_retry_resource_release(void *manager, void *resource) {
     retry_release(manager, resource);
 }
 
- 
+// 复用原生查询机会触发有界重读，不修改本次 ready 返回值，也不增加扫描。
 bool hook_retry_texture_ready(void *resource) {
     const bool ready = g_retry_original_ready.load(std::memory_order_acquire)(resource);
     if (!ready && g_retry_armed.load(std::memory_order_acquire)) {
         g_texture_retry.queried(resource);
     }
-     
+    // A retry never changes the return value of this particular ready query.
     return ready;
 }
 
- 
+// 对象销毁时注销对应记录；地址复用后不能沿用旧纹理的恢复状态。
 void *hook_retry_texture_delete(void *resource, std::uint32_t flags) {
     if (g_retry_armed.load(std::memory_order_acquire)) {
         g_texture_retry.retired(resource);
@@ -149,7 +149,7 @@ bool retry_code_matches(std::uint8_t *base, std::uintptr_t rva, const std::uint8
     return matches;
 }
 
- 
+// 同时验证游戏指纹、调用点、队列和引用指令；任何不符都拒绝安装。
 bool validate_retry_profile(HMODULE module) {
     const auto *nt = get_nt_headers(module);
     if (nt == nullptr || nt->FileHeader.TimeDateStamp != 0x6A7D2E58 ||
@@ -195,7 +195,7 @@ bool validate_retry_profile(HMODULE module) {
            vtable[11] == b + 0xAA38790 && is_readable_range(b + 0x147C4330, sizeof(void *));
 }
 
- 
+// 主 Hook 内存分配失败时才使用固定入口后备方案；冲突回滚不覆盖其他插件。
 bool install_texture_retry_targets(const dstorage_guard::TextureRetryNativeTargets &targets) {
     if (targets.texture_vtable == nullptr || targets.manager_slot == nullptr ||
         targets.release_target == nullptr || targets.read_queue == nullptr ||
@@ -296,8 +296,8 @@ bool install_texture_retry_targets(const dstorage_guard::TextureRetryNativeTarge
             return true;
         }
     }
-     
-     
+    // Originals/trampoline remain pinned even on failure: a racing native
+    // caller may have fetched one of the now-unarmed forwarding wrappers.
     const auto ready_rollback = dstorage_guard::install_pointer_hook(
         vtable + 10, reinterpret_cast<void *>(&hook_retry_texture_ready), targets.ready_original,
         operations);

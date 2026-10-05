@@ -1,4 +1,4 @@
- 
+// 加载生命周期与事件唤醒。普通加载和同场景黑屏分别结束，不扩大保护窗口。
 void request_protection_report() {
     g_protection_report_requested.store(true, std::memory_order_release);
     if (g_report_event != nullptr) {
@@ -38,7 +38,7 @@ void record_loading_gate_event(LoadingEventKind kind, LoadingEventSource source,
     }
 }
 
- 
+// 开启一个加载代次；重叠起点由门控策略合并，不能重复增加代次。
 void mark_loading_start(LoadingEventSource source, bool requires_fade_in) {
     std::uint64_t generation{};
     if (!g_loading_gate.mark_start(requires_fade_in, &generation)) {
@@ -89,7 +89,7 @@ void post_camera_fade_in(void **, REFrameworkTypeDefinitionHandle, unsigned long
     }
 }
 
- 
+// 仅普通加载门开启时读取 Loading/Scene；快速旅行等待自己的淡入事件。
 void post_update_motion_loading_gate() {
     auto snapshot = g_loading_gate.snapshot();
     if (!snapshot.active || snapshot.requires_fade_in || g_reframework_sdk == nullptr ||
@@ -207,7 +207,7 @@ std::uint32_t install_stable_scene_observer(const REFrameworkPluginInitializePar
     return state;
 }
 
- 
+// 必须具备完整起止能力才放行保护；缺少结束边界时保持旁路。
 bool install_loading_lifecycle_hooks(const REFrameworkPluginInitializeParam *param) {
     g_loading_gate.configure(false, false);
     std::uint32_t state{};
