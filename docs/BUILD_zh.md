@@ -39,8 +39,8 @@ clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d
 ```json
 {
   "status": "BUILT",
-  "version": "0.6.0",
-  "dll_sha256": "9a4b934b0a62169881499b9bc1a58bc32b2d0e157ee6892da2d6d2a3603b5b28"
+  "version": "0.6.1",
+  "dll_sha256": "e3fc43c5e6dcad2e34d01d8e03e024c091d8ebd98dc55a90a07629b2bc0c79f9"
 }
 ```
 
@@ -49,16 +49,16 @@ clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d
 | `out/release/DStorageFileLifetimeGuard.dll` | 优化后的发布 DLL |
 | `out/release/build.json` | 本次构建状态、编译器首行、源码与依赖内容哈希 |
 | `out/release/*.o`、`*.log` | 本机构建中间文件及编译器输出 |
-| `dist/LifetimeGuard_v0.6.0/` | 完整发布文件夹，不再套一层压缩包 |
-| `dist/LifetimeGuard_v0.6.0/LifetimeGuard_v0.6.0.zip` | 可交给 Mod 管理器安装的 ZIP |
-| `dist/LifetimeGuard_v0.6.0/LICENSE`、`licenses/` | 与安装 ZIP 一起分发的完整许可证 |
+| `dist/LifetimeGuard_v0.6.1/` | 完整发布文件夹，不再套一层压缩包 |
+| `dist/LifetimeGuard_v0.6.1/LifetimeGuard_v0.6.1.zip` | 可交给 Mod 管理器安装的 ZIP |
+| `dist/LifetimeGuard_v0.6.1/LICENSE`、`licenses/` | 与安装 ZIP 一起分发的完整许可证 |
 
 打包命令输出发布文件夹、安装 ZIP 的文件名、SHA-256、字节数及附带许可证的哈希。
 安装 ZIP 仅包含 `reframework/`、`modinfo.ini` 和 `README.md`；许可证放在发布文件夹中，
 与安装 ZIP 同级，保持原有 `LICENSE`、`licenses/` 路径和内容，不安装到游戏目录。
 README 使用源目录文件原始字节，不重排、不改换行。
 
-发布或转发时必须提供完整的 `dist/LifetimeGuard_v0.6.0/` 文件夹，不单独分发里面的安装 ZIP，
+发布或转发时必须提供完整的 `dist/LifetimeGuard_v0.6.1/` 文件夹，不单独分发里面的安装 ZIP，
 也不把许可证作为另一个可选下载。构建不生成外层压缩包。两种源码包仍保留各自完整许可证。
 
 ## 编译和打包约定

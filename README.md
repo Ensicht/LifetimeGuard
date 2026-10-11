@@ -1,6 +1,6 @@
 # LifetimeGuard
 
-版本：0.6.0  
+版本：0.6.1  
 作者：Laz
 
 ## 简述
@@ -29,6 +29,10 @@ LifetimeGuard 会保护正在使用的文件，在符合条件时重新读取失
 - LifetimeGuard 用于保护特定版本的 DirectStorage 与 REFramework 加载 loose files 的机制，这两项前置版本变更可能导致本 Mod 失效，具体以 REFramework 中 LifetimeGuard 的状态为准。
 
 ## 更新日志
+
+### 0.6.1
+
+- 扩大 REFramework 支持范围。
 
 ### 0.6.0
 

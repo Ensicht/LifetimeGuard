@@ -28,29 +28,6 @@ inline constexpr CleanupBlock cleanup_blocks[] = {
 inline constexpr std::uintptr_t cleanup_close_return_rva = 0xCF033A9;
 inline constexpr std::uint32_t cleanup_game_timestamp = 0x6A7D2E58;
 inline constexpr std::uint32_t cleanup_game_size = 0x2079C000;
-struct CleanupHostProfile {
-    std::uint32_t timestamp, size;
-    std::uintptr_t rva;
-    const char *hex;
-};
-inline constexpr CleanupHostProfile cleanup_hosts[] = {
-    {0x6A391892, 0x161C000, 0xEACB0,
-     "40534883ec20488bd9e8c28effff488b10488b826805000080780800743b488b8b600100004885c9742f4883bb580"
-     "1000000742548897c2430488d3de8e71b01488bd7e8f84a6d004885c074074889bb58010000488b7c24304883c420"
-     "5bc3"},
-    {0x69D60B74, 0x15D1000, 0xB8FF0,
-     "40534883ec20488bd9e882b0ffff488b10488b826805000080780800743b488b8b600100004885c9742f4883bb580"
-     "1000000742548897c2430488d3d68501b01488bd7e82c6a6d004885c074074889bb58010000488b7c24304883c420"
-     "5bc3"},
-    {0x6AA2FE9B, 0x162D000, 0xEE650,
-     "40534883ec20488bd9e85291ffff488b10488b826805000080780800743b488b8b600100004885c9742f4883bb580"
-     "1000000742548897c2430488d3de8821c01488bd7e8e8a96d004885c074074889bb58010000488b7c24304883c420"
-     "5bc3"},
-    {0x6AA53BAF, 0x162E000, 0xEE650,
-     "40534883ec20488bd9e85291ffff488b10488b826805000080780800743b488b8b600100004885c9742f4883bb580"
-     "1000000742548897c2430488d3de8921c01488bd7e868b26d004885c074074889bb58010000488b7c24304883c420"
-     "5bc3"},
-};
 
 inline unsigned cleanup_nibble(char c) {
     return c <= '9' ? c - '0' : c - 'a' + 10;
@@ -94,36 +71,6 @@ inline std::uint32_t validate_cleanup_image(const void *image) {
     return 0;
 }
 
-inline std::uint32_t validate_cleanup_host(const void *image) {
-    IMAGE_DOS_HEADER dos{};
-    IMAGE_NT_HEADERS64 nt{};
-    const auto *base = static_cast<const std::uint8_t *>(image);
-    if (!cleanup_read(base, &dos, sizeof(dos)) || dos.e_magic != IMAGE_DOS_SIGNATURE ||
-        dos.e_lfanew <= 0 || dos.e_lfanew > 0x10000 ||
-        !cleanup_read(base + dos.e_lfanew, &nt, sizeof(nt)) || nt.Signature != IMAGE_NT_SIGNATURE) {
-        return 30;
-    }
-    for (const auto &profile : cleanup_hosts) {
-        if (nt.FileHeader.TimeDateStamp != profile.timestamp ||
-            nt.OptionalHeader.SizeOfImage != profile.size) {
-            continue;
-        }
-        std::uint8_t bytes[128]{};
-        const auto length = std::strlen(profile.hex) / 2;
-        if (!cleanup_read(base + profile.rva, bytes, length)) {
-            return 31;
-        }
-        for (std::size_t i = 0; i < length; ++i) {
-            if (bytes[i] != ((cleanup_nibble(profile.hex[i * 2]) << 4U) |
-                             cleanup_nibble(profile.hex[i * 2 + 1]))) {
-                return 31;
-            }
-        }
-        return 0;
-    }
-    return 32;
-}
-
 inline bool is_loose_texture_path(const wchar_t *path, std::size_t length) noexcept {
     if (!path || length < 6 || length > 32767) {
         return false;
@@ -141,11 +88,9 @@ inline bool is_loose_texture_path(const wchar_t *path, std::size_t length) noexc
 
 class LooseTextureCleanup {
   public:
-    void initialize(const void *image, const void *host) noexcept {
-        auto failure = validate_cleanup_image(image);
-        if (!failure) {
-            failure = validate_cleanup_host(host);
-        }
+    // 核验原生引用归属；松散纹理是否进入这条路径由实际 Close 事件确认，不识别宿主构建。
+    void initialize(const void *image) noexcept {
+        const auto failure = validate_cleanup_image(image);
         failure_.store(failure, std::memory_order_relaxed);
         if (!failure) {
             caller_.store(reinterpret_cast<std::uintptr_t>(image) + cleanup_close_return_rva,
