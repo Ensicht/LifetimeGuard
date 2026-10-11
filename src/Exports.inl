@@ -169,11 +169,12 @@ reframework_plugin_required_version(REFrameworkPluginVersion *version) {
 }
 
 extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_cleanup_bind(void *image,
-                                                                                     void *host) {
+                                                                                     void *) {
     if (!g_offline_test_mode.load() || !g_hooks_armed.load()) {
         return false;
     }
-    g_loose_cleanup.initialize(image, host);
+     
+    g_loose_cleanup.initialize(image);
     return g_loose_cleanup.caller() != 0;
 }
 extern "C" __declspec(dllexport) std::uint64_t dstorage_file_lifetime_guard_cleanup_pairs() {
@@ -187,7 +188,6 @@ reframework_plugin_initialize(const REFrameworkPluginInitializeParam *param) {
         return expected == 2 ||
                (expected == 3 && g_status_ui_state.load(std::memory_order_acquire) == 1);
     }
-    g_loose_cleanup_host.store(param ? param->reframework_module : nullptr);
     pin_module();
     rotate_report_history();
     FILETIME session_time{};

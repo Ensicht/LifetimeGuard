@@ -475,7 +475,7 @@ bool install_internal_hooks() {
         g_install_state.store(6, std::memory_order_release);
         return false;
     }
-    g_loose_cleanup.initialize(GetModuleHandleW(nullptr), g_loose_cleanup_host.load());
+    g_loose_cleanup.initialize(GetModuleHandleW(nullptr));
     g_hooks_armed.store(true, std::memory_order_release);
     g_install_state.store(1, std::memory_order_release);
     return true;
