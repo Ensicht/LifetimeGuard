@@ -29,6 +29,33 @@ inline constexpr std::uintptr_t cleanup_close_return_rva = 0xCF033A9;
 inline constexpr std::uint32_t cleanup_game_timestamp = 0x6A7D2E58;
 inline constexpr std::uint32_t cleanup_game_size = 0x2079C000;
 
+ 
+inline constexpr CleanupBlock cleanup_blocks_1_42_0_3[] = {
+    {0xCF03AD8, "4885c07442488d0dcc19a807ff15d6e47301488b064885c0741a488b0d9f19a807488b5108807a1900"
+                "4889ce7420807e19007438488d0d9d19a8074883c4205e48ff2599e67301904883c4205ec3"},
+    {0xCF03B26, "4889ce4c8d421048394220480f43f24c0f43c2498b10807a190074e7ebc2483b462072c24839ce74bd"
+                "488b4e28488b01ff5018488b4e28488b01ff5010488d0d2e19a8074889f2e8ce010000eb98"},
+    {0xCF03D40, "e95b3f9912"},
+    {0x1F897CA6, "488b421080781900750e4889c6488b008078190074f4eb164889d0488b7008807e19007509483b461"
+                 "04889f074ede827c854ed66230de44b96004889c7488b48284885c9740e48c7472800000000488b01"
+                 "ff50104889f9e82e9676e04889f04883c4285f5ec3"},
+    {0x51760F, "48890e488d0d7fde4614488d7c24304889fa4989f0e807b0170b488b3f488b4f28488b7424284839f17"
+               "4264885f6740d488b064889f1ff5008488b4f28488977284885c97406488b01ff5010488b4c24284885"
+               "c9740f48c744242800000000488b01ff501040b701e96affffff"},
+};
+
+struct CleanupGameProfile {
+    std::uintptr_t close_return_rva;
+    const CleanupBlock *blocks;
+    unsigned block_count;
+};
+inline constexpr CleanupGameProfile cleanup_game_profiles[] = {
+    {cleanup_close_return_rva, cleanup_blocks,
+     sizeof(cleanup_blocks) / sizeof(cleanup_blocks[0])},
+    {0xCF03B59, cleanup_blocks_1_42_0_3,
+     sizeof(cleanup_blocks_1_42_0_3) / sizeof(cleanup_blocks_1_42_0_3[0])},
+};
+
 inline unsigned cleanup_nibble(char c) {
     return c <= '9' ? c - '0' : c - 'a' + 10;
 }
@@ -38,7 +65,12 @@ inline bool cleanup_read(const void *p, void *out, std::size_t size) {
 }
 
  
-inline std::uint32_t validate_cleanup_image(const void *image) {
+ 
+inline std::uint32_t validate_cleanup_image(const void *image,
+                                          std::uintptr_t *close_return_rva = nullptr) {
+    if (close_return_rva) {
+        *close_return_rva = 0;
+    }
     IMAGE_DOS_HEADER dos{};
     IMAGE_NT_HEADERS64 nt{};
     const auto *base = static_cast<const std::uint8_t *>(image);
@@ -49,24 +81,45 @@ inline std::uint32_t validate_cleanup_image(const void *image) {
         nt.OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
         return 1;
     }
-    if (nt.FileHeader.TimeDateStamp != cleanup_game_timestamp ||
-        nt.OptionalHeader.SizeOfImage != cleanup_game_size) {
-        return 2;
-    }
-    for (unsigned index = 0; index < sizeof(cleanup_blocks) / sizeof(cleanup_blocks[0]); ++index) {
-        const auto &block = cleanup_blocks[index];
-        std::uint8_t bytes[256]{};
-        const auto length = std::strlen(block.hex) / 2;
-        if (length > sizeof(bytes) || !cleanup_read(base + block.rva, bytes, length)) {
-            return 10 + index;
-        }
-        for (std::size_t i = 0; i < length; ++i) {
-            const auto expected =
-                (cleanup_nibble(block.hex[i * 2]) << 4U) | cleanup_nibble(block.hex[i * 2 + 1]);
-            if (bytes[i] != expected) {
-                return 10 + index;
+    const CleanupGameProfile *profile{};
+    unsigned best_matches{};
+    std::uint32_t best_failure{2};
+    for (const auto &candidate : cleanup_game_profiles) {
+        unsigned matches{};
+        std::uint32_t failure{};
+        for (unsigned index = 0; index < candidate.block_count; ++index) {
+            const auto &block = candidate.blocks[index];
+            std::uint8_t bytes[256]{};
+            const auto length = std::strlen(block.hex) / 2;
+            bool matched = length <= sizeof(bytes) && block.rva < nt.OptionalHeader.SizeOfImage &&
+                           length <= nt.OptionalHeader.SizeOfImage - block.rva &&
+                           cleanup_read(base + block.rva, bytes, length);
+            for (std::size_t i = 0; matched && i < length; ++i) {
+                const auto expected = (cleanup_nibble(block.hex[i * 2]) << 4U) |
+                                      cleanup_nibble(block.hex[i * 2 + 1]);
+                matched = bytes[i] == expected;
+            }
+            matches += matched;
+            if (!matched && !failure) {
+                failure = 10 + index;
             }
         }
+        if (!failure && candidate.close_return_rva < nt.OptionalHeader.SizeOfImage) {
+            if (profile) {
+                return 3;
+            }
+            profile = &candidate;
+        }
+        if (matches > best_matches) {
+            best_matches = matches;
+            best_failure = failure ? failure : 2;
+        }
+    }
+    if (!profile) {
+        return best_failure;
+    }
+    if (close_return_rva) {
+        *close_return_rva = profile->close_return_rva;
     }
     return 0;
 }
@@ -90,10 +143,11 @@ class LooseTextureCleanup {
   public:
      
     void initialize(const void *image) noexcept {
-        const auto failure = validate_cleanup_image(image);
+        std::uintptr_t close_return_rva{};
+        const auto failure = validate_cleanup_image(image, &close_return_rva);
         failure_.store(failure, std::memory_order_relaxed);
         if (!failure) {
-            caller_.store(reinterpret_cast<std::uintptr_t>(image) + cleanup_close_return_rva,
+            caller_.store(reinterpret_cast<std::uintptr_t>(image) + close_return_rva,
                           std::memory_order_release);
         } else {
             caller_.store(0, std::memory_order_release);

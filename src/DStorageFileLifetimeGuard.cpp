@@ -11,6 +11,7 @@
 #include "LoadingGatePolicy.h"
 #include "ResourceRecoveryPolicy.h"
 #include "NativeTaskHookSpec.h"
+#include "NativeTextureProfile.h"
 #include "PointerHookTransaction.h"
 #include "GuardStatusUi.h"
 #include "DetachedTextureRetry.h"

@@ -20,6 +20,13 @@ extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_retry_pr
            validate_retry_profile(static_cast<HMODULE>(image));
 }
 
+extern "C" __declspec(dllexport) void *
+dstorage_file_lifetime_guard_test_texture_vtable(void *image, void *finalizer) {
+    return g_offline_test_mode.load() && image != nullptr
+               ? find_texture_vtable(static_cast<HMODULE>(image), finalizer, 0xE05AB80)
+               : nullptr;
+}
+
 extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_install_texture_retry(
     const dstorage_guard::TextureRetryNativeTargets *targets, std::size_t size) {
     if (!g_offline_test_mode.load() || g_retry_armed.load() || targets == nullptr ||
