@@ -15,7 +15,7 @@ LifetimeGuard 会保护正在使用的文件，在符合条件时重新读取失
 ## 前置要求
 
 - 荒野自带的**原版 DirectStorage 1.2.3 x64**，文件版本 `1.2.2407.1501`。
-- **REFramework**。REF Nightly 01417 之后的版本修改了 PAK 加载机制，与目前荒野的大多数 Mod 打包方式存在冲突，建议固定使用 REF Nightly 01417，如无必要请勿使用更新的 REF 版本
+- **REFramework**。REF Nightly 01417 之后的版本修改了 PAK 加载机制，与目前荒野的大多数 Mod 打包方式存在冲突，建议固定使用 REF Nightly 01417，如无必要请勿使用更新的 REF 版本。
 
 ## 安装与使用
 
