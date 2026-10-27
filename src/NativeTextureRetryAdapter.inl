@@ -149,50 +149,9 @@ bool retry_code_matches(std::uint8_t *base, std::uintptr_t rva, const std::uint8
     return matches;
 }
 
-// 同时验证游戏指纹、调用点、队列和引用指令；任何不符都拒绝安装。
+// 入口、调用点、队列及引用指令共同授权；游戏版本元数据不决定兼容性。
 bool validate_retry_profile(HMODULE module) {
-    const auto *nt = get_nt_headers(module);
-    if (nt == nullptr || nt->FileHeader.TimeDateStamp != 0x6A7D2E58 ||
-        nt->OptionalHeader.SizeOfImage != 0x2079C000) {
-        return false;
-    }
-    auto *b = reinterpret_cast<std::uint8_t *>(module);
-    constexpr std::uint8_t release[]{0x41, 0x57, 0x41, 0x56, 0x41, 0x55, 0x41, 0x54,
-                                     0x56, 0x57, 0x55, 0x53, 0x48, 0x83, 0xEC, 0x48};
-    constexpr std::uint8_t queue[]{0x41, 0x57, 0x41, 0x56, 0x56, 0x57, 0x53, 0x48, 0x83,
-                                   0xEC, 0x30, 0x48, 0x89, 0xD7, 0x48, 0x89, 0xCE};
-    constexpr std::uint8_t ready[]{0x8A, 0x41, 0x38, 0xC3};
-    constexpr std::uint8_t destroy[]{0x56, 0x57, 0x48, 0x83, 0xEC, 0x28, 0x89, 0xD7,
-                                     0x48, 0x89, 0xCE, 0xE8, 0x20, 0,    0,    0};
-    constexpr std::uint8_t clear_a[]{0x48, 0xC7, 0x45, 0x50, 0, 0, 0, 0};
-    constexpr std::uint8_t clear_b[]{0x49, 0xC7, 0x44, 0x24, 0x50, 0, 0, 0, 0};
-    constexpr std::uint8_t work_dec[]{0xF0, 0xFF, 0x8E, 0xC0, 0x0E, 0, 0};
-    constexpr std::uint8_t read_inc[]{0xF0, 0xFF, 0x86, 0xAC, 0x0E, 0, 0};
-    constexpr std::uint8_t release_ref[]{0xF0, 0xFF, 0x4A, 0x28};
-    if (!retry_code_matches(b, 0x24E070, release) || !retry_code_matches(b, 0xB0CA3B0, queue) ||
-        !retry_code_matches(b, 0x12C3A0, ready) || !retry_code_matches(b, 0x12C250, destroy) ||
-        !retry_code_matches(b, 0xA4A7AAF, clear_a) || !retry_code_matches(b, 0xA4A7341, clear_b) ||
-        !retry_code_matches(b, 0xA4A7ACE, work_dec) ||
-        !retry_code_matches(b, 0xA4A736A, work_dec) ||
-        !retry_code_matches(b, 0xB0CA40A, read_inc) ||
-        !retry_code_matches(b, 0xB0CA5C5, read_inc) ||
-        !retry_code_matches(b, 0x24E09D, release_ref)) {
-        return false;
-    }
-    for (const auto rva : {0xA4A7ADFU, 0xA4A737BU, 0xA4A71C0U, 0xA4A79C6U}) {
-        if (!is_readable_range(b + rva, 5) || b[rva] != 0xE8) {
-            return false;
-        }
-        std::int32_t displacement{};
-        std::memcpy(&displacement, b + rva + 1, 4);
-        if (b + rva + 5 + displacement != b + 0x24E070) {
-            return false;
-        }
-    }
-    auto **vtable = reinterpret_cast<void **>(b + 0xE05AB80);
-    return is_readable_range(vtable, 0x60) && vtable[6] == b + 0x12C250 &&
-           vtable[9] == b + 0xAA377E0 && vtable[10] == b + 0x12C3A0 &&
-           vtable[11] == b + 0xAA38790 && is_readable_range(b + 0x147C4330, sizeof(void *));
+    return dstorage_guard::find_native_texture_profile(module) != nullptr;
 }
 
 // 主 Hook 内存分配失败时才使用固定入口后备方案；冲突回滚不覆盖其他插件。
@@ -322,8 +281,10 @@ bool install_texture_retry_hooks() {
         return expected == 2;
     }
     auto *module = GetModuleHandleW(nullptr);
-    const auto profile_valid =
-        g_loading_gate.lifecycle_available() && validate_retry_profile(module);
+    const auto *profile = g_loading_gate.lifecycle_available()
+                              ? dstorage_guard::find_native_texture_profile(module)
+                              : nullptr;
+    const auto profile_valid = profile != nullptr;
     record_install_event(InstallComponent::texture_retry, InstallStage::validate_target, 0, module,
                          nullptr, nullptr, profile_valid ? 0 : 1, 0);
     if (!profile_valid) {
@@ -333,11 +294,12 @@ bool install_texture_retry_hooks() {
     auto *base = reinterpret_cast<std::uint8_t *>(module);
     const auto address = reinterpret_cast<std::uintptr_t>(base);
     return install_texture_retry_targets(
-        {reinterpret_cast<void **>(base + 0xE05AB80),
-         reinterpret_cast<void **>(base + 0x147C4330),
-         base + 0x24E070,
-         base + 0xB0CA3B0,
-         base + 0x12C250,
-         base + 0x12C3A0,
-         {address + 0xA4A7AE4, address + 0xA4A7380, address + 0xA4A71C5, address + 0xA4A79CB}});
+        {reinterpret_cast<void **>(base + profile->vtable),
+         reinterpret_cast<void **>(base + profile->manager),
+         base + profile->release,
+         base + profile->queue,
+         base + profile->destroy,
+         base + profile->ready,
+         {address + profile->terminal_calls[0] + 5, address + profile->terminal_calls[1] + 5,
+          address + profile->terminal_calls[2] + 5, address + profile->terminal_calls[3] + 5}});
 }

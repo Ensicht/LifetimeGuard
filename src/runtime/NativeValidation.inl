@@ -218,8 +218,45 @@ void *find_texture_vtable(HMODULE module, void *texture_finalizer, std::uintptr_
     if (preferred_rva != 0 && preferred_rva + 0x68 <= nt->OptionalHeader.SizeOfImage) {
         auto *preferred = base + preferred_rva;
         if (validate_texture_vtable(preferred, texture_finalizer)) {
+            for (const auto &profile : dstorage_guard::native_texture_profiles) {
+                if (profile.vtable == preferred_rva) {
+                    auto **methods = reinterpret_cast<void **>(preferred);
+                    return methods[6] == base + profile.destroy &&
+                                   methods[9] == base + profile.parse
+                               ? preferred
+                               : nullptr;
+                }
+            }
             return preferred;
         }
+    }
+
+    // 共享 finalizer 的派生类型会造成多个候选；已验证的析构归属可明确选择纹理类型。
+    for (const auto &profile : dstorage_guard::native_texture_profiles) {
+        if (!profile.destructor_vtable) {
+            continue;
+        }
+        std::uint8_t binding[10]{};
+        if (!dstorage_guard::texture_profile_read(module, profile.destructor_vtable, binding,
+                                                  sizeof(binding),
+                                                  nt->OptionalHeader.SizeOfImage) ||
+            std::memcmp(binding, "\x48\x8d\x05", 3) != 0 ||
+            std::memcmp(binding + 7, "\x48\x89\x01", 3) != 0) {
+            continue;
+        }
+        std::int32_t displacement{};
+        std::memcpy(&displacement, binding + 3, sizeof(displacement));
+        if (profile.destructor_vtable + 7 + static_cast<std::intptr_t>(displacement) !=
+            profile.vtable) {
+            continue;
+        }
+        auto *candidate = base + profile.vtable;
+        // 已知类型的表被改坏时拒绝，不退回另一个共享 finalizer 的派生类型。
+        auto **methods = reinterpret_cast<void **>(candidate);
+        return validate_texture_vtable(candidate, texture_finalizer) &&
+                       methods[6] == base + profile.destroy && methods[9] == base + profile.parse
+                   ? candidate
+                   : nullptr;
     }
 
     auto *sections = IMAGE_FIRST_SECTION(nt);

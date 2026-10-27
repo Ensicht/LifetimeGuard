@@ -34,6 +34,7 @@ LifetimeGuard 是 Windows x64 的 REFramework 原生插件，围绕异步文件�
 | `DetachedTextureRecoveryPolicy.h` | 分离任务后的纹理恢复条件 |
 | `DetachedTextureRetry.h` | 身份、代次、任务名额、取消和退避状态 |
 | `NativeTextureRetryAdapter.inl` | 原生重读调用、ready/delete 接入及安装事务 |
+| `NativeTextureProfile.h` | 已验证的原生纹理入口、调用归属与虚表布局 |
 | `LooseTextureCleanup.h` | 特定清理调用中的临时引用配对 |
 | `PointerHookTransaction.h` | 槽位归属检查及有限回滚 |
 | `NativeTaskHookSpec.h`、`TextureRetryNativeTargets.h` | 原生布局和入口特征 |
@@ -83,6 +84,8 @@ LifetimeGuard 是 Windows x64 的 REFramework 原生插件，围绕异步文件�
 
 原生接入分别检查模块指纹、x64 指令、虚表、返回地址及内存可读性。DirectStorage 兼容条件、游戏入口条件和最低插件 API 1.15 接入要求是独立的能力边界，单项就绪不能证明其他项就绪。框架次版本提高不直接拒绝接入，但未知原生结构仍保持安全拒绝。
 
+游戏纹理与松散清理接入保留两份已验证布局，只在启动时按完整代码和所有权条件选择唯一匹配项，不以游戏时间戳作为放行依据。纹理表同时核对析构归属，避免把共享收尾函数的其他表当作原纹理。此机制不是动态地址迁移，也不保证未知游戏更新自动兼容。
+
 MinHook 主入口分配失败时才考虑固定 16 字节后备，并继续要求对应指令和入口条件。固定入口后备不是通用 Hook 方案。未知指令、槽位冲突、内存分配失败或页面保护失败都应拒绝并回滚已完成的部分。
 
 指针回滚只能恢复仍由本插件持有的槽位，不能覆盖其他参与者后来写入的值。锁内状态变更、释放发生点以及线程指令指针和栈展开处理属于行为契约，不作为样式清理调整。
@@ -91,7 +94,7 @@ MinHook 主入口分配失败时才考虑固定 16 字节后备，并继续要�
 
 ## 6. 诊断、界面与配置
 
-统计结构 ABI 的 `version=9` 是接口结构版本，不是发行版本 `0.6.1`。既有导出函数是接口的一部分；离线调用入口不会自行运行，也不需要随源码附带调用程序。
+统计结构 ABI 的 `version=9` 是接口结构版本，不是发行版本 `0.6.2`。既有导出函数是接口的一部分；离线调用入口不会自行运行，也不需要随源码附带调用程序。
 
 运行数据归属 `reframework/data/DStorageFileLifetimeGuard/`：
 

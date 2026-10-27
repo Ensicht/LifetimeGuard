@@ -30,7 +30,7 @@ python -B scripts/package.py --build out/release
 对应工具版本输出的首行如下；编译器还会输出它在本机的安装路径。
 
 ```text
-Python 3.12.14
+Python 3.14.6
 clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d81e72ac174dcb5aa28b59d1)
 ```
 
@@ -39,8 +39,8 @@ clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d
 ```json
 {
   "status": "BUILT",
-  "version": "0.6.1",
-  "dll_sha256": "e3fc43c5e6dcad2e34d01d8e03e024c091d8ebd98dc55a90a07629b2bc0c79f9"
+  "version": "0.6.2",
+  "dll_sha256": "68d31ce7736094480286a635c5b7acad7aaed6a35028f888ea7013a23bfd9fc9"
 }
 ```
 
@@ -49,16 +49,16 @@ clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d
 | `out/release/DStorageFileLifetimeGuard.dll` | 优化后的发布 DLL |
 | `out/release/build.json` | 本次构建状态、编译器首行、源码与依赖内容哈希 |
 | `out/release/*.o`、`*.log` | 本机构建中间文件及编译器输出 |
-| `dist/LifetimeGuard_v0.6.1/` | 完整发布文件夹，不再套一层压缩包 |
-| `dist/LifetimeGuard_v0.6.1/LifetimeGuard_v0.6.1.zip` | 可交给 Mod 管理器安装的 ZIP |
-| `dist/LifetimeGuard_v0.6.1/LICENSE`、`licenses/` | 与安装 ZIP 一起分发的完整许可证 |
+| `dist/LifetimeGuard_v0.6.2/` | 完整发布文件夹，不再套一层压缩包 |
+| `dist/LifetimeGuard_v0.6.2/LifetimeGuard_v0.6.2.zip` | 可交给 Mod 管理器安装的 ZIP |
+| `dist/LifetimeGuard_v0.6.2/LICENSE`、`licenses/` | 与安装 ZIP 一起分发的完整许可证 |
 
 打包命令输出发布文件夹、安装 ZIP 的文件名、SHA-256、字节数及附带许可证的哈希。
 安装 ZIP 仅包含 `reframework/`、`modinfo.ini` 和 `README.md`；许可证放在发布文件夹中，
 与安装 ZIP 同级，保持原有 `LICENSE`、`licenses/` 路径和内容，不安装到游戏目录。
 README 使用源目录文件原始字节，不重排、不改换行。
 
-发布或转发时必须提供完整的 `dist/LifetimeGuard_v0.6.1/` 文件夹，不单独分发里面的安装 ZIP，
+发布或转发时必须提供完整的 `dist/LifetimeGuard_v0.6.2/` 文件夹，不单独分发里面的安装 ZIP，
 也不把许可证作为另一个可选下载。构建不生成外层压缩包。两种源码包仍保留各自完整许可证。
 
 ## 编译和打包约定
@@ -71,4 +71,4 @@ README 使用源目录文件原始字节，不重排、不改换行。
 
 编译脚本允许编译修改后的源码；原版打包入口不会把修改后的 DLL 当作本版原始产物。派生版本应自行维护版本和构建标识，其正确性不由原版内容标识担保。
 
-源码文本按 UTF-8 读取；第三方原文件不做注释或版权处理。ZIP 成员按文件名排序，使用固定时间、权限和 Deflate 压缩级别。发布打包环境为 Python 3.12.14、zlib 1.3.2。逐字节复现应使用相同 LLVM-MinGW 发行包及相同 Python/zlib 环境；其他工具链或压缩库版本不保证输出字节一致。
+源码文本按 UTF-8 读取；第三方原文件不做注释或版权处理。ZIP 成员按文件名排序，使用固定时间、权限和 Deflate 压缩级别。发布打包环境为 Python 3.14.6、zlib 1.3.1.zlib-ng。逐字节复现应使用相同 LLVM-MinGW 发行包及相同 Python/zlib 环境；其他工具链或压缩库版本不保证输出字节一致。

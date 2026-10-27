@@ -127,8 +127,8 @@ void write_protection_report() {
         const bool ready = g_loose_cleanup.caller() != 0 && g_hooks_armed.load();
         const auto n = std::snprintf(
             detail, sizeof(detail),
-            "loose_cleanup ready=%u profile_failure=%u caller=0x%llX expected_timestamp=0x6A7D2E58 "
-            "expected_image_size=0x2079C000 policy=temporary_ref_for_native_first_release "
+            "loose_cleanup ready=%u profile_failure=%u caller=0x%llX ownership_profiles=2 "
+            "policy=temporary_ref_for_native_first_release game_build_filter=0 "
             "host_build_filter=0 activation=verified_loose_tex_close no_new_hooks=1 "
             "no_scan=1 no_wait=1 scope=loose_tex_native_cache_cleanup\r\n",
             ready, g_loose_cleanup.failure(),
