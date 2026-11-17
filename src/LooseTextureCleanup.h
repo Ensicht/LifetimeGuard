@@ -1,4 +1,4 @@
- 
+// 松散纹理清理引用配对：仅在已验证的 Close 调用点配临时引用，不缓存纹理对象。
 #pragma once
 #include <windows.h>
 #include <atomic>
@@ -7,7 +7,7 @@
 
 namespace dstorage_guard {
 
- 
+// This is one verified game's ownership path, not a global COM refcount fix.
 struct CleanupBlock {
     std::uintptr_t rva;
     const char *hex;
@@ -29,7 +29,7 @@ inline constexpr std::uintptr_t cleanup_close_return_rva = 0xCF033A9;
 inline constexpr std::uint32_t cleanup_game_timestamp = 0x6A7D2E58;
 inline constexpr std::uint32_t cleanup_game_size = 0x2079C000;
 
- 
+// 1.42.0.3 retains the same cache ownership; its eraser has one extra dead-register read.
 inline constexpr CleanupBlock cleanup_blocks_1_42_0_3[] = {
     {0xCF03AD8, "4885c07442488d0dcc19a807ff15d6e47301488b064885c0741a488b0d9f19a807488b5108807a1900"
                 "4889ce7420807e19007438488d0d9d19a8074883c4205e48ff2599e67301904883c4205ec3"},
@@ -50,8 +50,7 @@ struct CleanupGameProfile {
     unsigned block_count;
 };
 inline constexpr CleanupGameProfile cleanup_game_profiles[] = {
-    {cleanup_close_return_rva, cleanup_blocks,
-     sizeof(cleanup_blocks) / sizeof(cleanup_blocks[0])},
+    {cleanup_close_return_rva, cleanup_blocks, sizeof(cleanup_blocks) / sizeof(cleanup_blocks[0])},
     {0xCF03B59, cleanup_blocks_1_42_0_3,
      sizeof(cleanup_blocks_1_42_0_3) / sizeof(cleanup_blocks_1_42_0_3[0])},
 };
@@ -64,10 +63,10 @@ inline bool cleanup_read(const void *p, void *out, std::size_t size) {
     return p && ReadProcessMemory(GetCurrentProcess(), p, out, size, &read) && read == size;
 }
 
- 
- 
+// Zero requires one complete ownership profile. 2 is unknown, 3 is ambiguous;
+// 10..14 identify the first bad block of the closest nonmatching profile.
 inline std::uint32_t validate_cleanup_image(const void *image,
-                                          std::uintptr_t *close_return_rva = nullptr) {
+                                            std::uintptr_t *close_return_rva = nullptr) {
     if (close_return_rva) {
         *close_return_rva = 0;
     }
@@ -95,8 +94,8 @@ inline std::uint32_t validate_cleanup_image(const void *image,
                            length <= nt.OptionalHeader.SizeOfImage - block.rva &&
                            cleanup_read(base + block.rva, bytes, length);
             for (std::size_t i = 0; matched && i < length; ++i) {
-                const auto expected = (cleanup_nibble(block.hex[i * 2]) << 4U) |
-                                      cleanup_nibble(block.hex[i * 2 + 1]);
+                const auto expected =
+                    (cleanup_nibble(block.hex[i * 2]) << 4U) | cleanup_nibble(block.hex[i * 2 + 1]);
                 matched = bytes[i] == expected;
             }
             matches += matched;
@@ -128,7 +127,7 @@ inline bool is_loose_texture_path(const wchar_t *path, std::size_t length) noexc
     if (!path || length < 6 || length > 32767) {
         return false;
     }
-     
+    // Check the final file extension only, never a directory containing '.tex.'.
     auto end = length;
     while (end && path[end - 1] >= L'0' && path[end - 1] <= L'9') {
         --end;
@@ -141,7 +140,7 @@ inline bool is_loose_texture_path(const wchar_t *path, std::size_t length) noexc
 
 class LooseTextureCleanup {
   public:
-     
+    // 核验原生引用归属；松散纹理是否进入这条路径由实际 Close 事件确认，不识别宿主构建。
     void initialize(const void *image) noexcept {
         std::uintptr_t close_return_rva{};
         const auto failure = validate_cleanup_image(image, &close_return_rva);
@@ -154,14 +153,14 @@ class LooseTextureCleanup {
         }
     }
 
-     
+    // 仅匹配原生清理调用点和纹理路径时配一次临时引用，由后续原生 Release 消耗。
     bool pair(void *wrapper, std::uintptr_t caller) noexcept {
         const auto expected = caller_.load(std::memory_order_acquire);
         if (!expected || caller != expected || !wrapper) {
             return false;
         }
-         
-         
+        // The supported DirectStorage 1.2.3 wrapper is live at Close entry.
+        // Its immutable std::wstring belongs to the internal file, not to a scene object.
         const auto *file = *reinterpret_cast<const std::uint8_t *const *>(
             static_cast<const std::uint8_t *>(wrapper) + 0x20);
         if (!file) {
@@ -179,8 +178,8 @@ class LooseTextureCleanup {
         }
         using Ref = ULONG (*)(void *);
         const auto table = *reinterpret_cast<void ***>(wrapper);
-         
-         
+        // The next native Release consumes this temporary reference. The map
+        // eraser then consumes its own reference. Do not release it here again.
         reinterpret_cast<Ref>(table[1])(wrapper);
         paired_.fetch_add(1, std::memory_order_relaxed);
         return true;
@@ -201,4 +200,4 @@ class LooseTextureCleanup {
     std::atomic<std::uint32_t> failure_{1};
     std::atomic<std::uint64_t> paired_{};
 };
-}  
+} // namespace dstorage_guard

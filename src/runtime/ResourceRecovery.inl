@@ -1,4 +1,4 @@
- 
+// 受保护纹理的终态补全。只处理已核对的任务结构，不把所有资源强制标记成功。
 void record_resource_recovery(void *task, void *resource, std::uint64_t expected_bytes,
                               std::uint64_t completed_bytes,
                               dstorage_guard::ResourceRecoveryDecision decision,
@@ -25,7 +25,7 @@ void record_resource_recovery(void *task, void *resource, std::uint64_t expected
     }
 }
 
- 
+// 只在当前保护代次处理严格匹配的纹理终态；其他资源继续走原判断。
 bool hook_resource_task_ready(void *task) {
     const auto original = g_original_resource_task_ready.load(std::memory_order_acquire);
     const auto native_complete = original != nullptr && original(task);
@@ -43,7 +43,7 @@ bool hook_resource_task_ready(void *task) {
     const auto completion_seen = task_bytes[0x120] != 0;
     const auto expected_bytes = *reinterpret_cast<const std::uint64_t *>(task_bytes + 0x128);
     const auto completed_bytes = *reinterpret_cast<const std::uint64_t *>(task_bytes + 0x130);
-     
+    // The task stores the resource's inline path, not the resource pointer.
     auto *resource_path = *reinterpret_cast<void *const *>(task_bytes + 0x118);
     const auto resource_path_address = reinterpret_cast<std::uintptr_t>(resource_path);
     const auto resource_path_present = resource_path != nullptr && resource_path_address >= 0xE0 &&
@@ -76,7 +76,7 @@ bool hook_resource_task_ready(void *task) {
     };
     auto decision = dstorage_guard::decide_resource_recovery(snapshot);
     if (dstorage_guard::is_resource_recovery(decision)) {
-         
+        // Reject a candidate that changed while the failure snapshot was read.
         const auto snapshot_stable =
             is_readable_range(task, 0x138) && is_readable_range(resource, 0xE8) &&
             is_readable_range(parsed_texture, 0x18) &&

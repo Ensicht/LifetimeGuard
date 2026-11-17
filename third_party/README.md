@@ -2,35 +2,20 @@
 
 ## MinHook
 
-`minhook/` contains a modified MinHook implementation. Upstream project:
-[TsudaKageyu/minhook](https://github.com/TsudaKageyu/minhook).
+`minhook/` is the exact local MinHook implementation used by the validated LifetimeGuard v0.5.4 baseline. Upstream: <https://github.com/TsudaKageyu/minhook>.
 
-Local extensions provide allocation diagnostics, near-allocation range and race
-handling, and a narrowly gated fixed-16-byte fallback with unwind and thread-IP
-handling. These extensions are part of the build input, not interchangeable with
-an arbitrary upstream binary. Content hashes are pinned in `manifest.json`.
+This is **not an unmodified upstream release**. It includes the already validated allocation diagnostics, corrected near-allocation range/race handling, and narrowly validated fixed-16-byte fallback with unwind/thread-IP handling. Do not replace it with stock MinHook without rerunning the native fault-injection suite. Source-file hashes are pinned in `manifest.json`.
 
-Original authors and BSD-style notices, including Hacker Disassembler Engine
-notices, remain in `minhook/AUTHORS.txt`, `minhook/LICENSE.txt`, the source headers,
-and `../licenses/MinHook.txt`. Separable Laz modifications use the project MIT
-license; upstream notices still apply to derived files.
+Original authors and BSD-style license (including Hacker Disassembler Engine notices) remain in `minhook/AUTHORS.txt`, `minhook/LICENSE.txt` and `../licenses/MinHook.txt`. Laz modifications follow the project MIT license where separable; upstream notices still apply to derived files.
 
 ## REFramework
 
-Only the C plugin API header is included. Upstream project:
-[praydog/REFramework](https://github.com/praydog/REFramework).
-The header uses the MIT license, Copyright 2019 praydog; see
-`../licenses/REFramework.txt`. The plugin consumes the host C ABI and exported UI
-functions; this package does not bundle the REFramework runtime or ImGui.
+Only the C plugin API header is vendored, identical to the stable build input. Upstream: <https://github.com/praydog/REFramework>. License: MIT, Copyright 2019 praydog; see `../licenses/REFramework.txt`.
 
-## Compiler Runtime
+The game plugin uses that C ABI and the host's exported UI functions; it does not bundle REFramework or link a separate ImGui implementation.
 
-The external toolchain is `llvm-mingw-20260616-ucrt-x86_64`, Clang 22.1.8.
-The toolchain is not included. Keep its complete distribution and original
-licenses. The DLL statically links runtime components; redistribution notices
-are included in `../licenses/LLVM.txt`, `../licenses/COPYING.winpthreads.txt`,
-and `../licenses/COPYING.MinGW-w64-runtime.txt`.
+## External Test Inputs
 
-Production compilation requires no DirectStorage SDK or game files. Runtime
-compatibility requirements are described in the root README. Build commands and
-output descriptions are in `../docs/BUILD_zh.md`.
+The DirectStorage 1.2.3 SDK headers/import library, the game's `dstorage.dll` / `dstoragecore.dll`, and `MonsterHunterWilds.exe` are **not distributed** in this repository or install packages. Supply your own valid installation and SDK when running the native suite. A production DLL build does not require the DirectStorage SDK or game binaries.
+
+The toolchain is external llvm-mingw; release verification uses `llvm-mingw-20260616-ucrt-x86_64`. Keep its original distribution and licenses separately. The release DLL statically links its runtime; runtime redistribution notices must accompany binary releases.

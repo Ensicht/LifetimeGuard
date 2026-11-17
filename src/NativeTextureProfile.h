@@ -1,4 +1,4 @@
- 
+// 原生纹理入口证据：只在启动时核对代码、虚表和引用归属，不按版本号放行。
 #pragma once
 #include <windows.h>
 #include <cstdint>
@@ -102,7 +102,7 @@ inline bool validate_native_texture_profile(const void *image, std::size_t image
         if (rva + 5 + static_cast<std::intptr_t>(displacement) != p.release) {
             return false;
         }
-         
+        // 四处 Release 必须仍使用同一 ResourceManager，而不是仅有相似调用指令。
         std::uint8_t manager[7]{};
         if (!texture_profile_read(image, rva - 10, manager, sizeof(manager), image_size) ||
             std::memcmp(manager, "\x48\x8b\x0d", 3) != 0) {
@@ -158,4 +158,4 @@ inline const NativeTextureProfile *find_native_texture_profile(const void *image
     }
     return found;
 }
-}  
+} // namespace dstorage_guard

@@ -1,6 +1,6 @@
 # LifetimeGuard
 
-版本：0.6.2  
+版本：1.0.0  
 作者：Laz
 
 ## 简述
@@ -12,10 +12,13 @@
 
 LifetimeGuard 会保护正在使用的文件，在符合条件时重新读取失败贴图，并修正一些已确认的贴图清理引用问题，可以极大减少出现卡加载的情况。
 
+检测到兼容的 BoneSystem 时，LifetimeGuard 还会省去配置加载时多余的目录扫描，明显缓解大集会所人多或有玩家中途加入任务时的瞬时卡顿。
+
 ## 前置要求
 
 - 荒野自带的**原版 DirectStorage 1.2.3 x64**，文件版本 `1.2.2407.1501`。
-- **REFramework**。REF Nightly 01417 之后的版本修改了 PAK 加载机制，与目前荒野的大多数 Mod 打包方式存在冲突，建议固定使用 REF Nightly 01417，如无必要请勿使用更新的 REF 版本。
+- **REFramework**。过早版本的 REFramework 可能不支持。
+- (可优化性能) **BoneSystem**。如果安装了 BoneSystem，本 Mod 可以解决一个 BoneSystem 造成的瞬时卡顿，人多的大集会所和任务中其他玩家加入时较为常见。未安装 BoneSystem 不受影响。
 
 ## 安装与使用
 
@@ -29,6 +32,10 @@ LifetimeGuard 会保护正在使用的文件，在符合条件时重新读取失
 - LifetimeGuard 用于保护特定版本的 DirectStorage 与 REFramework 加载 loose files 的机制，这两项前置版本变更可能导致本 Mod 失效，具体以 REFramework 中 LifetimeGuard 的状态为准。
 
 ## 更新日志
+
+### 1.0.0
+
+- 添加了一个 BoneSystem 的优化补丁，可以明显缓解因为 BoneSystem 造成的瞬时卡顿。未安装 BoneSystem 不受影响。
 
 ### 0.6.2
 

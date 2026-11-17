@@ -1,4 +1,4 @@
- 
+// 仅启动读取语言、用户操作时保存；设置文件不随安装包发布。
 #pragma once
 
 #include <windows.h>
@@ -13,7 +13,7 @@ inline const char *localized(GuardLanguage language, const char *chinese,
     return language == GuardLanguage::English ? english : chinese;
 }
 
- 
+// Only load at UI registration and save on an explicit language change.
 class GuardUiSettings {
   public:
     void load(const wchar_t *path) noexcept {
@@ -71,4 +71,4 @@ class GuardUiSettings {
     bool save_failed_{};
 };
 
-}  
+} // namespace dstorage_guard

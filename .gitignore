@@ -1,4 +1,15 @@
 /out/
 /dist/
+/exports/
+/.dependencies/
 __pycache__/
 *.pyc
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.a
+*.pdb
+*.log
+ui.ini

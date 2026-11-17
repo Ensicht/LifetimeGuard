@@ -1,4 +1,4 @@
- 
+// 原生模块、代码和安装事件验证。签名不符时拒绝安装，不猜测偏移。
 bool pe_matches(HMODULE module) {
     if (module == nullptr) {
         return false;
@@ -231,7 +231,7 @@ void *find_texture_vtable(HMODULE module, void *texture_finalizer, std::uintptr_
         }
     }
 
-     
+    // 共享 finalizer 的派生类型会造成多个候选；已验证的析构归属可明确选择纹理类型。
     for (const auto &profile : dstorage_guard::native_texture_profiles) {
         if (!profile.destructor_vtable) {
             continue;
@@ -251,7 +251,7 @@ void *find_texture_vtable(HMODULE module, void *texture_finalizer, std::uintptr_
             continue;
         }
         auto *candidate = base + profile.vtable;
-         
+        // 已知类型的表被改坏时拒绝，不退回另一个共享 finalizer 的派生类型。
         auto **methods = reinterpret_cast<void **>(candidate);
         return validate_texture_vtable(candidate, texture_finalizer) &&
                        methods[6] == base + profile.destroy && methods[9] == base + profile.parse

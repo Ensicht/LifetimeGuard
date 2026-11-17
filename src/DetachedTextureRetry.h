@@ -1,4 +1,4 @@
- 
+// 有界失败纹理重读：保留代次、身份、四任务上限和退避，不增加轮询。
 #pragma once
 
 #include <array>
@@ -30,9 +30,9 @@ struct TextureRetryResource {
     }
 };
 
- 
- 
- 
+// All callbacks operate on a resource already owned by the native caller.
+// No callback may re-enter this object while holding one of its bucket locks.
+// snapshot/gate/add_ref are bounded reads or an atomic reference increment.
 struct TextureRetryBindings {
     TextureRetryGate (*gate)(){};
     TextureRetryResource (*snapshot)(void *){};
@@ -64,7 +64,7 @@ struct TextureRetryEvent {
     std::uintptr_t parsed{};
     std::uint64_t identity{};
     std::uint64_t generation{};
-     
+    // 1 receipt, 2 queued, 3 recovered, 4 failed, 5 cancelled, 6 wake failure.
     std::uint32_t kind{};
     bool transferred_reference{};
     std::uint64_t qpc{};
@@ -85,12 +85,12 @@ struct GameplayRetryStats {
 class DetachedTextureRetry {
   public:
     static constexpr std::uint64_t gameplay_parallel_limit = 4;
-     
+    // Installed once before arming the adapter. Never change live bindings.
     explicit DetachedTextureRetry(TextureRetryBindings bindings) : bindings_(bindings) {}
 
-     
-     
-     
+    // Called ONLY after a verified native worker destroyed its task, cleared
+    // the binding and balanced its work counter, but BEFORE its final Release.
+    // true transfers that existing job reference to a new native read job.
     bool terminal(void *manager, void *resource) {
         const auto snapshot = bindings_.snapshot(resource);
         if (!snapshot.texture) {
@@ -115,7 +115,7 @@ class DetachedTextureRetry {
                 }
                 return false;
             }
-             
+            // A reread can fail before it produces another parsed descriptor.
             if (entry != nullptr && entry->queued) {
                 finish_job(*entry);
                 failed_.fetch_add(1, std::memory_order_relaxed);
@@ -150,8 +150,8 @@ class DetachedTextureRetry {
         return submit(ticket);
     }
 
-     
-     
+    // Called only when the real texture ready getter returned false, the
+    // recovery is allowed, and the ledger is nonempty. No scene scan.
     void queried(void *resource) {
         if (resident_.load(std::memory_order_relaxed) == 0) {
             return;
@@ -182,8 +182,8 @@ class DetachedTextureRetry {
         submit(ticket);
     }
 
-     
-     
+    // Invoked by the exact texture deleting destructor before memory reuse.
+    // Receipts own scalar identities only, never resource references.
     void retired(void *resource) {
         if (resident_.load(std::memory_order_relaxed) == 0) {
             return;
@@ -262,8 +262,8 @@ class DetachedTextureRetry {
         if (snapshot.detached()) {
             return true;
         }
-         
-         
+        // A verified reread may fail before allocating another descriptor.
+        // Its worker receipt remains evidence; an arbitrary task=null is not.
         return entry != nullptr && entry->retry_failure && snapshot.texture &&
                snapshot.identity == entry->identity && !snapshot.ready && !snapshot.task &&
                !snapshot.runtime && !snapshot.disposing && snapshot.references != 0;
@@ -313,8 +313,8 @@ class DetachedTextureRetry {
         if (!reserve_job(gate.gameplay)) {
             return {};
         }
-         
-         
+        // Loading retains its once-per-generation rule. Gameplay uses a
+        // bounded concurrent queue and failure backoff, never a new timer.
         if (!gate.gameplay) {
             entry.attempted_generation = gate.generation;
         }
@@ -347,8 +347,8 @@ class DetachedTextureRetry {
         bool submitted = false;
         if (gate.active && gate.generation == ticket.generation &&
             gate.gameplay == ticket.gameplay && bindings_.manager_valid(ticket.manager)) {
-             
-             
+            // Native read/parser/worker owns the job after enqueue returns.
+            // Never call a finalizer or write readiness/descriptor fields here.
             submitted = bindings_.enqueue(ticket.manager, ticket.resource);
         }
         if (!submitted) {
@@ -379,8 +379,8 @@ class DetachedTextureRetry {
             wake_failed_.fetch_add(1, std::memory_order_relaxed);
             ticket_event(ticket, 6);
         }
-         
-         
+        // The worker may already have completed and destroyed the resource.
+        // There must be no dereference of ticket.resource past enqueue.
         return true;
     }
 
@@ -425,4 +425,4 @@ class DetachedTextureRetry {
     std::size_t event_read_{}, event_write_{};
 };
 
-}  
+} // namespace dstorage_guard

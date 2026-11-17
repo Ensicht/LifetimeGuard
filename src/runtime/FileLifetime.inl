@@ -1,4 +1,4 @@
- 
+// 文件租约、Close 延迟和请求配对。保留锁顺序、原子内存序以及 AddRef/Release 配对。
 std::uint64_t hash_pair(std::uint64_t first, std::uint64_t second) {
     auto value = first ^ ((second << 23U) | (second >> 41U));
     value ^= value >> 30U;
@@ -132,7 +132,7 @@ void recycle_file_state(FileState *file_state) {
     file_state->key.store(k_tombstone_key, std::memory_order_release);
 }
 
- 
+// 在 Close 与请求登记之间持有同一文件锁，先取得租约再允许原请求入队。
 FileState *acquire_file_lease(void *wrapper, void *internal_file, bool require_open_handle = true) {
     if (wrapper == nullptr || internal_file == nullptr) {
         return nullptr;
@@ -208,7 +208,7 @@ void record_replayed_close(FileState *file_state) {
     }
 }
 
- 
+// 最后一个在途租约释放时重放被延迟的 Close，再释放对应引用。
 void complete_file_lease(FileState *file_state, void *wrapper) {
     if (file_state == nullptr || wrapper == nullptr) {
         return;
@@ -252,7 +252,7 @@ void complete_file_lease(FileState *file_state, void *wrapper) {
     release_ref(wrapper);
 }
 
- 
+// 以请求身份和代次登记租约，避免地址复用把旧完成回调配到新请求。
 bool publish_request_lease(void *request, std::uint64_t request_id, void *wrapper,
                            void *internal_file, FileState *file_state) {
     const auto start = request_id & (k_request_capacity - 1);
@@ -282,7 +282,7 @@ bool publish_request_lease(void *request, std::uint64_t request_id, void *wrappe
     return false;
 }
 
- 
+// 只完成匹配的租约；重复、过时或未配对回调不释放其他请求的引用。
 void finish_request_lease(std::uint64_t request_id, void *internal_file) {
     const auto start = request_id & (k_request_capacity - 1);
     const auto internal_file_key = reinterpret_cast<std::uint64_t>(internal_file);
@@ -314,7 +314,7 @@ void finish_request_lease(std::uint64_t request_id, void *internal_file) {
     }
 }
 
- 
+// 只修已验证的松散纹理清理调用点；加载期关闭另由在途租约延迟。
 void hook_public_file_close(void *wrapper) {
     const auto original = g_original_file_close.load(std::memory_order_acquire);
     if (original == nullptr || wrapper == nullptr) {
@@ -360,7 +360,7 @@ void hook_public_file_close(void *wrapper) {
     }
 }
 
- 
+// 正常游玩无新增文件租约。加载结束后仍允许已登记请求完成排空。
 void hook_public_enqueue_request(void *self, const void *descriptor) {
     const auto original = g_original_enqueue.load(std::memory_order_acquire);
     if (original == nullptr) {
@@ -392,7 +392,7 @@ void hook_public_enqueue_request(void *self, const void *descriptor) {
     }
 }
 
- 
+// 只接收当前线程入队上下文中的租约，不跨线程猜测请求归属。
 void *hook_request_ctor(void *self, const void *source) {
     const auto original = g_original_request_ctor.load(std::memory_order_acquire);
     auto *result = original != nullptr ? original(self, source) : self;
@@ -417,7 +417,7 @@ void *hook_request_ctor(void *self, const void *source) {
     return result;
 }
 
- 
+// 先执行原完成流程，再处理已绑定租约；保持返回值与原生语义。
 void *hook_request_try_complete(void *self, void *optional_result) {
     const auto original = g_original_try_complete.load(std::memory_order_acquire);
     const auto may_have_tracked_request =

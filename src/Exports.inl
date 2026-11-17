@@ -1,6 +1,6 @@
- 
+// 稳定版导出 ABI，包括离线测试入口。仅被显式调用时执行，不注册额外运行任务。
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_get_texture_retry_stats(dstorage_guard::TextureRetryStats *output,
                                                      std::size_t size, std::uint32_t *state) {
     if (output == nullptr || size < sizeof(*output)) {
@@ -13,21 +13,21 @@ dstorage_file_lifetime_guard_get_texture_retry_stats(dstorage_guard::TextureRetr
     return true;
 }
 
- 
- 
-extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_retry_profile(void *image) {
+// Standalone-host ABI. Game initialization with a real REFramework parameter
+// never enables these entry points. They cannot rebind an installed adapter.
+extern "C" LG_CORE_EXPORT bool dstorage_file_lifetime_guard_test_retry_profile(void *image) {
     return g_offline_test_mode.load() && image != nullptr &&
            validate_retry_profile(static_cast<HMODULE>(image));
 }
 
-extern "C" __declspec(dllexport) void *
-dstorage_file_lifetime_guard_test_texture_vtable(void *image, void *finalizer) {
+extern "C" LG_CORE_EXPORT void *dstorage_file_lifetime_guard_test_texture_vtable(void *image,
+                                                                                 void *finalizer) {
     return g_offline_test_mode.load() && image != nullptr
                ? find_texture_vtable(static_cast<HMODULE>(image), finalizer, 0xE05AB80)
                : nullptr;
 }
 
-extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_install_texture_retry(
+extern "C" LG_CORE_EXPORT bool dstorage_file_lifetime_guard_test_install_texture_retry(
     const dstorage_guard::TextureRetryNativeTargets *targets, std::size_t size) {
     if (!g_offline_test_mode.load() || g_retry_armed.load() || targets == nullptr ||
         size != sizeof(*targets)) {
@@ -40,7 +40,7 @@ extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_install_
     return install_texture_retry_targets(*targets);
 }
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_test_retry_detours(void **ready, void **release, void **destroy) {
     if (!g_offline_test_mode.load() || ready == nullptr || release == nullptr ||
         destroy == nullptr) {
@@ -52,7 +52,7 @@ dstorage_file_lifetime_guard_test_retry_detours(void **ready, void **release, vo
     return true;
 }
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_test_bind_texture_retry(void **texture_vtable, void **manager_slot,
                                                      NativeResourceReleaseFn release,
                                                      NativeResourceReadQueueFn queue) {
@@ -70,7 +70,7 @@ dstorage_file_lifetime_guard_test_bind_texture_retry(void **texture_vtable, void
     return true;
 }
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_test_texture_retry(unsigned operation, void *manager, void *resource) {
     if (!g_offline_test_mode.load() || !g_retry_armed.load()) {
         return false;
@@ -94,7 +94,7 @@ dstorage_file_lifetime_guard_test_texture_retry(unsigned operation, void *manage
     return false;
 }
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_test_gameplay_retry(bool enabled, std::uint64_t milliseconds) {
     if (!g_offline_test_mode.load(std::memory_order_acquire)) {
         return false;
@@ -105,7 +105,7 @@ dstorage_file_lifetime_guard_test_gameplay_retry(bool enabled, std::uint64_t mil
     return true;
 }
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_get_gameplay_retry_stats(dstorage_guard::GameplayRetryStats *output,
                                                       std::size_t size) {
     if (output == nullptr || size < sizeof(*output)) {
@@ -115,12 +115,11 @@ dstorage_file_lifetime_guard_get_gameplay_retry_stats(dstorage_guard::GameplayRe
     return true;
 }
 
-extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_enable_resource_recovery() {
+extern "C" LG_CORE_EXPORT bool dstorage_file_lifetime_guard_enable_resource_recovery() {
     return install_resource_recovery_hook();
 }
 
-extern "C" __declspec(dllexport) bool
-dstorage_file_lifetime_guard_test_set_loading_state(bool active) {
+extern "C" LG_CORE_EXPORT bool dstorage_file_lifetime_guard_test_set_loading_state(bool active) {
     if (!g_offline_test_mode.load(std::memory_order_acquire)) {
         return false;
     }
@@ -132,8 +131,8 @@ dstorage_file_lifetime_guard_test_set_loading_state(bool active) {
     return g_loading_gate.accepts_new_work() == active;
 }
 
-extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_get_stats(GuardStats *output,
-                                                                             std::size_t size) {
+extern "C" LG_CORE_EXPORT bool dstorage_file_lifetime_guard_get_stats(GuardStats *output,
+                                                                      std::size_t size) {
     if (output == nullptr || size < sizeof(GuardStats)) {
         return false;
     }
@@ -149,7 +148,7 @@ extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_get_stats(Gua
     return true;
 }
 
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 dstorage_file_lifetime_guard_get_loading_stats(LoadingLifecycleStats *output, std::size_t size) {
     if (output == nullptr || size < sizeof(LoadingLifecycleStats)) {
         return false;
@@ -165,7 +164,7 @@ dstorage_file_lifetime_guard_get_loading_stats(LoadingLifecycleStats *output, st
     return true;
 }
 
-extern "C" __declspec(dllexport) void
+extern "C" LG_CORE_EXPORT void
 reframework_plugin_required_version(REFrameworkPluginVersion *version) {
     if (version == nullptr) {
         return;
@@ -175,19 +174,18 @@ reframework_plugin_required_version(REFrameworkPluginVersion *version) {
     version->patch = REFRAMEWORK_PLUGIN_VERSION_PATCH;
 }
 
-extern "C" __declspec(dllexport) bool dstorage_file_lifetime_guard_test_cleanup_bind(void *image,
-                                                                                     void *) {
+extern "C" LG_CORE_EXPORT bool dstorage_file_lifetime_guard_test_cleanup_bind(void *image, void *) {
     if (!g_offline_test_mode.load() || !g_hooks_armed.load()) {
         return false;
     }
-     
+    // 保留离线测试的双参数 ABI；第二个参数不再参与兼容性判断。
     g_loose_cleanup.initialize(image);
     return g_loose_cleanup.caller() != 0;
 }
-extern "C" __declspec(dllexport) std::uint64_t dstorage_file_lifetime_guard_cleanup_pairs() {
+extern "C" LG_CORE_EXPORT std::uint64_t dstorage_file_lifetime_guard_cleanup_pairs() {
     return g_loose_cleanup.paired();
 }
-extern "C" __declspec(dllexport) bool
+extern "C" LG_CORE_EXPORT bool
 reframework_plugin_initialize(const REFrameworkPluginInitializeParam *param) {
     std::uint32_t expected{};
     if (!g_initialize_state.compare_exchange_strong(expected, 1, std::memory_order_acq_rel,
@@ -214,7 +212,12 @@ reframework_plugin_initialize(const REFrameworkPluginInitializeParam *param) {
         g_report_create_error = GetLastError();
     }
 
+#ifndef LG_WMP_PROVIDER
+#ifdef LG_BONE_SYSTEM_COMPANION
+    lifetimeguard::bonesystem::bind(param);
+#endif
     install_status_ui(param);
+#endif
     bool lifecycle_available{};
     if (param == nullptr) {
         g_offline_test_mode.store(true, std::memory_order_release);
@@ -271,7 +274,7 @@ reframework_plugin_initialize(const REFrameworkPluginInitializeParam *param) {
     if (g_report_thread == nullptr) {
         write_protection_report();
     }
-     
+    // Keep the read-only status panel available even if protection failed.
     return success || g_status_ui_state.load(std::memory_order_acquire) == 1;
 }
 

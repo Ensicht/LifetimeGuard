@@ -1,1 +1,14 @@
-* -text
+/src/** text eol=lf
+/scripts/** text eol=lf
+/tests/** text eol=lf
+/docs/** text eol=lf
+*.md text eol=lf
+
+/.clang-format text eol=lf
+/.gitattributes text eol=lf
+/.gitignore text eol=lf
+/LICENSE text eol=lf
+
+# Preserve the exact build inputs and redistributed notice bytes on Windows.
+/third_party/** -text
+/licenses/** -text

@@ -1,4 +1,4 @@
- 
+// 故障分类和固定报告限额；达到报告上限不停止实际保护。
 #pragma once
 
 #include <array>
@@ -12,7 +12,7 @@ struct ProtectionFailureState {
     std::uint32_t file{}, resource{}, retry{}, iat{}, reporter{};
 };
 
- 
+// Pending factory/installation states are not failed protections.
 constexpr std::uint32_t protection_failure_mask(const ProtectionFailureState &s) {
     std::uint32_t mask = s.lifecycle ? 0U : 1U;
     if (s.lifecycle) {
@@ -34,8 +34,8 @@ constexpr std::uint32_t protection_failure_mask(const ProtectionFailureState &s)
 
 enum class DiagnosticKind : std::size_t { install, resource, retry, counters, count };
 
- 
- 
+// Owned exclusively by the existing background writer (startup fallback only
+// when that writer could not be created). Limits affect diagnostics, not repair.
 class FailureBudget {
   public:
     static constexpr unsigned limit = 16;
@@ -60,4 +60,4 @@ class FailureBudget {
     std::array<bool, static_cast<std::size_t>(DiagnosticKind::count)> noticed_{};
 };
 
-}  
+} // namespace dstorage_guard

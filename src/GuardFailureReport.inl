@@ -1,6 +1,6 @@
- 
- 
- 
+// 故障摘要仅复用已有事件和安装快照，保留会话标识与历史对齐规则。
+// Included after the existing report formatters. No game-thread scans, object
+// retention or new worker: only committed scalar events reach this writer.
 char g_install_trace[192 * 1024]{};
 std::size_t g_install_trace_size{}, g_install_trace_written{};
 bool g_install_trace_truncated{}, g_failure_header_written{};
@@ -146,7 +146,7 @@ void write_protection_report() {
                                                         g_retry_install_state.load(),
                                                         g_iat_hook_state.load(),
                                                         g_report_thread_state.load()};
-     
+    // The fallback runs once on startup only if no report worker exists.
     if (health.reporter != 3 && g_install_trace_size == 0) {
         const auto count = g_install_event_next.load();
         for (std::uint64_t i = 0; i < count && i < k_install_event_capacity; ++i) {
@@ -241,7 +241,7 @@ void write_failure_counters() {
             append_report(totals, n);
         }
     }
-     
+    // Called only while draining an already-recorded load event, not per frame.
     const auto unpaired = g_unpaired_requests.load();
     const auto collisions = g_registry_collisions.load();
     if (unpaired == g_last_unpaired && collisions == g_last_collisions) {

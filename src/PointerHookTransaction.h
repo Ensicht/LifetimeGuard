@@ -1,4 +1,4 @@
- 
+// 指针安装事务：失败只恢复自己拥有的槽位，避免覆盖其他插件更新。
 #pragma once
 #include <cstdint>
 
@@ -21,8 +21,8 @@ struct PointerHookResult {
     bool protection_restored{};
 };
 
- 
- 
+// The caller publishes the original before this transaction, and keeps it
+// valid on failure because a racing reader may already have fetched detour.
 template <class Operations>
 PointerHookResult install_pointer_hook(void **slot, void *original, void *detour,
                                        Operations &operations) {
@@ -45,4 +45,4 @@ PointerHookResult install_pointer_hook(void **slot, void *original, void *detour
         operations.restore(slot, result.old_protection, result.rollback_restore_error);
     return result;
 }
-}  
+} // namespace dstorage_guard

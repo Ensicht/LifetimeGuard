@@ -1,15 +1,15 @@
- 
+// 日志格式、限额与历史轮换。此处只由既有报告路径调用，不增加热路径写盘。
 void ensure_report_directory() {
     CreateDirectoryW(L"reframework", nullptr);
     CreateDirectoryW(L"reframework\\data", nullptr);
-    CreateDirectoryW(L"reframework\\data\\DStorageFileLifetimeGuard", nullptr);
+    CreateDirectoryW(LG_REPORT_DIR, nullptr);
 }
 
 void append_report(const char *text, std::size_t length) {
     ensure_report_directory();
-    const auto file = CreateFileW(L"reframework\\data\\DStorageFileLifetimeGuard\\events.log",
-                                  FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                                  OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    const auto file = CreateFileW(LG_REPORT_DIR L"\\events.log", FILE_APPEND_DATA,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) {
         return;
     }
@@ -23,11 +23,10 @@ void report_history_path(unsigned index, wchar_t *output, std::size_t output_cou
         return;
     }
     if (index == 0) {
-        wcscpy_s(output, output_count, L"reframework\\data\\DStorageFileLifetimeGuard\\events.log");
+        wcscpy_s(output, output_count, LG_REPORT_DIR L"\\events.log");
         return;
     }
-    swprintf_s(output, output_count, L"reframework\\data\\DStorageFileLifetimeGuard\\events.%u.log",
-               index);
+    swprintf_s(output, output_count, LG_REPORT_DIR L"\\events.%u.log", index);
 }
 
 void note_report_rotation_failure(DWORD error) {
@@ -67,7 +66,7 @@ void rotate_report_file(const wchar_t *source, const wchar_t *destination) {
     note_report_rotation_failure(copy_error != ERROR_SUCCESS ? copy_error : move_error);
 }
 
- 
+// 事件和故障日志按同一会话轮换；无故障留下空位，不能把不同启动对齐。
 void rotate_report_history() {
     ensure_report_directory();
     wchar_t source[MAX_PATH]{};
@@ -79,13 +78,11 @@ void rotate_report_history() {
     }
     for (unsigned index = k_report_history_count; index > 0; --index) {
         if (index == 1) {
-            wcscpy_s(source, L"reframework\\data\\DStorageFileLifetimeGuard\\failures.log");
+            wcscpy_s(source, LG_REPORT_DIR L"\\failures.log");
         } else {
-            swprintf_s(source, L"reframework\\data\\DStorageFileLifetimeGuard\\failures.%u.log",
-                       index - 1);
+            swprintf_s(source, LG_REPORT_DIR L"\\failures.%u.log", index - 1);
         }
-        swprintf_s(destination, L"reframework\\data\\DStorageFileLifetimeGuard\\failures.%u.log",
-                   index);
+        swprintf_s(destination, LG_REPORT_DIR L"\\failures.%u.log", index);
         rotate_report_file(source, destination);
     }
     report_history_path(0, destination, MAX_PATH);
